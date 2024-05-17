@@ -1,3 +1,5 @@
+import { PlateType } from "../enums/Enums"
+
 type BaseInfo = {
 	Id: string
 	Name: string
@@ -5,7 +7,7 @@ type BaseInfo = {
 }
 
 export type Plate = BaseInfo & {
-	Type: string
+	Type: PlateType
 	CanMake: boolean
 	Ingredients: Array<string>
 }
