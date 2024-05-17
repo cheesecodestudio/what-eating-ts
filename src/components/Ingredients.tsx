@@ -5,7 +5,7 @@ import { generarId, dateFormat } from '../utils/utils.ts'
 import Pagination from './Pagination'
 import type { Ingredient, Plate } from "../types"
 
-type HeaderProps = {
+type IngredientsProps = {
 	ingredientsData: Ingredient[]
 	setIngredientsData: Dispatch<SetStateAction<Ingredient[]>>
 	CheckPlates: (plates: Plate[] | void) => void
@@ -17,11 +17,12 @@ const Ingredients = ({
 	setIngredientsData,
 	CheckPlates,
 	RemoveIngredientFromPlates
-}: HeaderProps) => {
+}: IngredientsProps) => {
 	const [Id, setId] = useState('')
 	const [Name, setName] = useState('')
 	const [CreateDate, setCreateDate] = useState('')
 	const [InStock, setInStock] = useState(false)
+	const [CurrentItems, setCurrentItems] = useState<Ingredient[]>([])
 
 	const isCreate = () => Id === '';
 
@@ -44,6 +45,7 @@ const Ingredients = ({
 			};
 			setIngredientsData([newIngredient, ...ingredientsData]);
 		}
+		
 		CheckPlates();
 
 		//clean inputs
@@ -90,7 +92,7 @@ const Ingredients = ({
 						</tr>
 					</thead>
 					<tbody>
-						{ingredientsData.length > 0 ? ingredientsData.map(data => (
+						{CurrentItems.length > 0 ? CurrentItems.map(data => (
 							<tr key={data.Id} className="bg-white border-b text-center">
 								<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
 									{data.Name}
@@ -168,7 +170,7 @@ const Ingredients = ({
 					</tbody>
 				</table>
 			</form>
-			<Pagination></Pagination>
+			<Pagination<Ingredient> Info={ingredientsData} setCurrentItems={setCurrentItems}></Pagination>
 		</>
 	)
 }

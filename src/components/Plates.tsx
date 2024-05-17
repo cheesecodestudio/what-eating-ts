@@ -4,8 +4,9 @@ import { faAdd, faPen, faSquareCheck, faSquareXmark, faTrash, faXmark } from '@f
 import { generarId, dateFormat } from '../utils/utils.ts'
 import Pagination from './Pagination'
 import type { Plate, Ingredient } from '../types'
+import { PlateType } from '../enums/Enums.ts'
 
-type HeaderProps = {
+type PlatesProps = {
 	platesData: Plate[]
 	setPlatesData: Dispatch<SetStateAction<Plate[]>>
 	ingredientsData: Ingredient[]
@@ -17,13 +18,14 @@ const Plates = ({
 	setPlatesData,
 	ingredientsData,
 	CheckPlates
-}: HeaderProps) => {
+}: PlatesProps) => {
 	const [Id, setId] = useState('')
 	const [Name, setName] = useState('')
 	const [CreateDate, setCreateDate] = useState('')
-	const [Type, setType] = useState('')
+	const [Type, setType] = useState(PlateType.Every)
 	const [IngredientsInput, setIngredientsInput] = useState('')
 	const [Ingredients, setIngredients] = useState<string[]>([])
+	const [CurrentItems, setCurrentItems] = useState<Plate[]>([])
 
 	const CODE_TO_ADDCHIP = 'Space';
 
@@ -33,8 +35,11 @@ const Plates = ({
 		if (code === CODE_TO_ADDCHIP) {
 			const ingredientExist: number = ingredientsData.findIndex(ingredient => ingredient.Name.toLowerCase() === IngredientsInput.trim().toLocaleLowerCase());
 			if (ingredientExist >= 0) {
-				setIngredients([...Ingredients, ingredientsData[ingredientExist].Id]);
-				setIngredientsInput("");
+				const idExist: number = Ingredients.findIndex(id => id === ingredientsData[ingredientExist].Id);
+				if(idExist < 0){
+					setIngredients([...Ingredients, ingredientsData[ingredientExist].Id]);
+					setIngredientsInput("");
+				}
 			}
 		}
 	}
@@ -72,7 +77,7 @@ const Plates = ({
 		setId('');
 		setName('');
 		setCreateDate('');
-		setType('');
+		setType(PlateType.Every);
 		setIngredients([]);
 	}
 
@@ -114,7 +119,7 @@ const Plates = ({
 						</tr>
 					</thead>
 					<tbody>
-						{platesData.length > 0 ? platesData.map(data => (
+						{CurrentItems.length > 0 ? CurrentItems.map(data => (
 							<tr key={data.Id} className="bg-white border-b text-center">
 								<th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
 									{data.Name}
@@ -181,12 +186,12 @@ const Plates = ({
 								/>
 							</td>
 							<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<select name="Type" id="plate-type" value={Type} onChange={e => setType(e.target.value)}>
-									<option value="Every">Every</option>
-									<option value="Breakfast">Breakfast</option>
-									<option value="Meat">Meat</option>
-									<option value="No Meat">No Meat</option>
-									<option value="Fast Food">Fast Food</option>
+								<select name="Type" id="plate-type" value={Type} onChange={e => setType(e.target.value as PlateType)}>
+									<option value={PlateType.Every}>{PlateType.Every}</option>
+									<option value={PlateType.Breakfast}>{PlateType.Breakfast}</option>
+									<option value={PlateType.Meat}>{PlateType.Meat}</option>
+									<option value={PlateType.NoMeat}>{PlateType.NoMeat}</option>
+									<option value={PlateType.FastFood}>{PlateType.FastFood}</option>
 								</select>
 							</td>
 							<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
@@ -228,7 +233,7 @@ const Plates = ({
 					</tbody>
 				</table>
 			</form>
-			<Pagination></Pagination>
+			<Pagination<Plate> Info={platesData} setCurrentItems={setCurrentItems}></Pagination>
 		</>
 	)
 }
