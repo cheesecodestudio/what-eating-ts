@@ -1,15 +1,51 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faAdd, faPen, faSquareCheck, faSquareXmark, faTrash } from '@fortawesome/free-solid-svg-icons'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
+import { faAdd, faPen, faTrash, faMagnifyingGlass, faCheese, faWheatAwn, faDrumstickBite, faCarrot, faAppleWhole, faDroplet, faCandyCane, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons'
 import { dateFormat } from '../utils/utils.ts'
 import { apiPost, apiPut, apiDelete } from '../hooks/useApi.ts'
 import Pagination from './Pagination'
 import type { Ingredient } from "../types"
-import { FoodGroup, PortionUnit } from '../enums/Enums.ts'
+import { FoodGroup, UnitOfMeasure } from '../enums/Enums.ts'
 
 type IngredientsProps = {
 	ingredientsData: Ingredient[]
 	onRefetch: () => void
+}
+
+const foodGroupMeta: Record<FoodGroup, { icon: IconDefinition; color: string }> = {
+	[FoodGroup.Dairy]:     { icon: faCheese,        color: 'text-yellow-400' },
+	[FoodGroup.Grain]:     { icon: faWheatAwn,       color: 'text-amber-600'  },
+	[FoodGroup.Protein]:   { icon: faDrumstickBite,  color: 'text-red-500'    },
+	[FoodGroup.Vegetable]: { icon: faCarrot,         color: 'text-orange-500' },
+	[FoodGroup.Fruit]:     { icon: faAppleWhole,     color: 'text-green-600'  },
+	[FoodGroup.Fat]:       { icon: faDroplet,        color: 'text-yellow-600' },
+	[FoodGroup.Sugar]:     { icon: faCandyCane,      color: 'text-pink-500'   },
+}
+
+const CUP_FRACTIONS = [
+	{ label: '1/8',  value: 0.125     },
+	{ label: '1/4',  value: 0.25      },
+	{ label: '1/3',  value: 1/3       },
+	{ label: '1/2',  value: 0.5       },
+	{ label: '2/3',  value: 2/3       },
+	{ label: '3/4',  value: 0.75      },
+	{ label: '1',    value: 1         },
+	{ label: '1½',   value: 1.5       },
+	{ label: '2',    value: 2         },
+] as const
+
+const formatPortion = (portion: number, uom: string): string => {
+	if (uom === UnitOfMeasure.Cup) {
+		const match = [...CUP_FRACTIONS].reduce((best, f) =>
+			Math.abs(f.value - portion) < Math.abs(best.value - portion) ? f : best
+		)
+		return `${match.label} cup`
+	}
+	if (uom === UnitOfMeasure.Grams) return `${portion}g`
+	if (uom === UnitOfMeasure.Ml)    return `${portion}ml`
+	if (uom === UnitOfMeasure.Unit)  return `×${portion}`
+	return String(portion)
 }
 
 const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
@@ -18,10 +54,32 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 	const [CreateDate, setCreateDate] = useState('')
 	const [InStock, setInStock] = useState(false)
 	const [IngFoodGroup, setIngFoodGroup] = useState<FoodGroup | ''>('')
-	const [PortionDescription, setPortionDescription] = useState('')
-	const [IngPortionUnit, setIngPortionUnit] = useState<PortionUnit | ''>('')
-	const [EquivalentServings, setEquivalentServings] = useState<number | ''>('')
+	const [IngUnitOfMeasure, setIngUnitOfMeasure] = useState<UnitOfMeasure | ''>('')
 	const [CurrentItems, setCurrentItems] = useState<Ingredient[]>([])
+	const [Search, setSearch] = useState('')
+	const [Portion, setPortion] = useState<number | ''>('')
+	const [sortCol, setSortCol] = useState<'Name' | 'CreateDate' | 'InStock'>('Name')
+	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
+	const filteredData = useMemo(
+		() => ingredientsData.filter(i =>
+			i.Name.toLowerCase().includes(Search.toLowerCase())
+		),
+		[ingredientsData, Search]
+	)
+
+	const sortedData = useMemo(
+		() => [...filteredData].sort((a, b) => {
+			const dir = sortDir === 'asc' ? 1 : -1
+			switch (sortCol) {
+				case 'Name':       return a.Name.localeCompare(b.Name) * dir
+				case 'CreateDate': return a.CreateDate.localeCompare(b.CreateDate) * dir
+				case 'InStock':    return (Number(a.InStock) - Number(b.InStock)) * dir
+				default:           return 0
+			}
+		}),
+		[filteredData, sortCol, sortDir]
+	)
 
 	const isCreate = () => Id === '';
 
@@ -31,9 +89,8 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 		setCreateDate('');
 		setInStock(false);
 		setIngFoodGroup('');
-		setPortionDescription('');
-		setIngPortionUnit('');
-		setEquivalentServings('');
+		setIngUnitOfMeasure('');
+		setPortion('');
 	}
 
 	const HandleSubmit = async (e: React.FormEvent) => {
@@ -42,9 +99,8 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 			Name,
 			InStock,
 			FoodGroup: IngFoodGroup || null,
-			PortionDescription: PortionDescription || null,
-			PortionUnit: IngPortionUnit || null,
-			EquivalentServings: EquivalentServings === '' ? null : EquivalentServings,
+			UnitOfMeasure: IngUnitOfMeasure || null,
+			Portion: Portion === '' ? null : Portion,
 		}
 		try {
 			if (isCreate()) {
@@ -67,9 +123,8 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 			setCreateDate(ingredient.CreateDate);
 			setInStock(ingredient.InStock);
 			setIngFoodGroup(ingredient.FoodGroup ?? '');
-			setPortionDescription(ingredient.PortionDescription ?? '');
-			setIngPortionUnit(ingredient.PortionUnit ?? '');
-			setEquivalentServings(ingredient.EquivalentServings ?? '');
+			setIngUnitOfMeasure(ingredient.UnitOfMeasure ?? '');
+			setPortion(ingredient.Portion ?? '');
 		}
 	}
 
@@ -88,19 +143,62 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 		}
 	}
 
+	const ToggleInStock = async (ingredient: Ingredient) => {
+		try {
+			await apiPut<Ingredient>(`/api/ingredients/${ingredient.Id}`, {
+				Name: ingredient.Name,
+				InStock: !ingredient.InStock,
+				FoodGroup: ingredient.FoodGroup ?? null,
+				UnitOfMeasure: ingredient.UnitOfMeasure ?? null,
+				Portion: ingredient.Portion ?? null,
+			})
+			onRefetch()
+		} catch (err) {
+			alert((err as Error).message)
+		}
+	}
+
+	const handleSort = (col: 'Name' | 'CreateDate' | 'InStock') => {
+		if (col === sortCol) {
+			setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+		} else {
+			setSortCol(col)
+			setSortDir('asc')
+		}
+	}
+
+	const SortIndicator = ({ col }: { col: 'Name' | 'CreateDate' | 'InStock' }) => (
+		<FontAwesomeIcon
+			icon={sortCol !== col ? faSort : sortDir === 'asc' ? faSortUp : faSortDown}
+			className={`ml-1 text-xs ${sortCol === col ? 'text-blue-600' : 'text-gray-400'}`}
+		/>
+	)
+
 	return (
 		<>
 			<h1 className='text-2xl font-bold underline text-purple-700'>Ingredients</h1>
+			<div className="relative max-w-sm my-3">
+				<span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+					<FontAwesomeIcon icon={faMagnifyingGlass} />
+				</span>
+				<input
+					type="text"
+					placeholder="Search ingredient..."
+					value={Search}
+					onChange={e => setSearch(e.target.value)}
+					className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2"
+				/>
+			</div>
 			<form onSubmit={HandleSubmit}>
 				<table className='w-full text-lg text-left rtl:text-right text-gray-500'>
 					<thead className='text-2xl text-gray-700 uppercase bg-gray-50 text-center'>
 						<tr>
-							<th scope="col" className="px-6 py-3">Name</th>
-							<th scope="col" className="px-6 py-3">Date</th>
-							<th scope="col" className="px-6 py-3">In Stock</th>
-							<th scope="col" className="px-6 py-3">Food Group</th>
-							<th scope="col" className="px-6 py-3">Portion</th>
-							<th scope="col" className="px-6 py-3">Servings</th>
+						<th scope="col" className="px-6 py-3 cursor-pointer select-none hover:bg-gray-100" onClick={() => handleSort('Name')}>Name <SortIndicator col="Name" /></th>
+						<th scope="col" className="px-6 py-3 cursor-pointer select-none hover:bg-gray-100" onClick={() => handleSort('CreateDate')}>Date <SortIndicator col="CreateDate" /></th>
+						<th scope="col" className="px-6 py-3 cursor-pointer select-none hover:bg-gray-100" onClick={() => handleSort('InStock')}>In Stock <SortIndicator col="InStock" /></th>
+						<th scope="col" className="px-6 py-3">Food Group</th>
+						<th scope="col" className="px-6 py-3">Unit of Measure</th>
+						<th scope="col" className="px-6 py-3">Portion</th>
 							<th scope="col" className="px-6 py-3">Actions</th>
 						</tr>
 					</thead>
@@ -114,24 +212,35 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 									{dateFormat(data.CreateDate)}
 								</td>
 								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-									{data.InStock ?
-										<FontAwesomeIcon icon={faSquareCheck} className='text-green-800 px-2.5 py-0.5' size='2xl' /> :
-										<FontAwesomeIcon icon={faSquareXmark} className='text-pink-800 px-2.5 py-0.5' size='2xl' />
-									}
+								<input
+									type="checkbox"
+									className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+									checked={data.InStock}
+									onChange={() => ToggleInStock(data)}
+									aria-label={`Toggle in stock for ${data.Name}`}
+								/>
 								</td>
 								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-									{data.FoodGroup ?? <span className="text-gray-400">—</span>}
+								{data.FoodGroup
+									? <FontAwesomeIcon
+										icon={foodGroupMeta[data.FoodGroup].icon}
+										className={foodGroupMeta[data.FoodGroup].color}
+										title={data.FoodGroup}
+										size="xl"
+									  />
+									: <span className="text-gray-400">—</span>
+								}
 								</td>
 								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-									{data.PortionDescription
-										? `${data.PortionDescription}${data.PortionUnit ? ` (${data.PortionUnit})` : ''}`
-										: <span className="text-gray-400">—</span>
-									}
-								</td>
-								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-									{data.EquivalentServings ?? <span className="text-gray-400">—</span>}
-								</td>
-								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									{data.UnitOfMeasure ?? <span className="text-gray-400">—</span>}
+							</td>
+							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+								{data.Portion != null && data.UnitOfMeasure
+									? formatPortion(data.Portion, data.UnitOfMeasure)
+									: <span className="text-gray-400">—</span>
+								}
+							</td>
+							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
 									<button type="button" onClick={() => FillInputs(data.Id)} className="text-white bg-yellow-700 hover:bg-yellow-800 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none">
 										<FontAwesomeIcon icon={faPen} />
 									</button>
@@ -193,34 +302,42 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 								</select>
 							</td>
 							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<input
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 mb-1"
-									type="text"
-									placeholder="half banana"
-									value={PortionDescription}
-									onChange={e => setPortionDescription(e.target.value)}
-								/>
 								<select
 									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-									value={IngPortionUnit}
-									onChange={e => setIngPortionUnit(e.target.value as PortionUnit | '')}
-								>
-									<option value="">— unit —</option>
-									{Object.values(PortionUnit).map(u => (
-										<option key={u} value={u}>{u}</option>
+									value={IngUnitOfMeasure}
+								onChange={e => {
+									setIngUnitOfMeasure(e.target.value as UnitOfMeasure | '')
+									setPortion('')
+								}}
+							>
+								<option value="">— none —</option>
+								{Object.values(UnitOfMeasure).map(u => (
+									<option key={u} value={u}>{u}</option>
+								))}
+							</select>
+						</td>
+						<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+							{IngUnitOfMeasure === UnitOfMeasure.Cup
+								? <select
+									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+									value={Portion}
+									onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))}
+								  >
+									<option value="">— none —</option>
+									{CUP_FRACTIONS.map(f => (
+										<option key={f.label} value={f.value}>{f.label} cup</option>
 									))}
-								</select>
-							</td>
-							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<input
+								  </select>
+								: <input
 									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
 									type="number"
 									min="0"
 									step="0.5"
-									placeholder="1"
-									value={EquivalentServings}
-									onChange={e => setEquivalentServings(e.target.value === '' ? '' : Number(e.target.value))}
-								/>
+									placeholder={IngUnitOfMeasure === UnitOfMeasure.Grams ? '30' : IngUnitOfMeasure === UnitOfMeasure.Ml ? '250' : '1'}
+									value={Portion}
+									onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))}
+								  />
+							}
 							</td>
 							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
 								<button
@@ -234,7 +351,7 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 					</tbody>
 				</table>
 			</form>
-			<Pagination<Ingredient> Info={ingredientsData} setCurrentItems={setCurrentItems}></Pagination>
+			<Pagination<Ingredient> Info={sortedData} setCurrentItems={setCurrentItems}></Pagination>
 		</>
 	)
 }

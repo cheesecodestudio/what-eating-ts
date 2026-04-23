@@ -1,4 +1,4 @@
-export enum PlateType {
+export enum DishType {
 	Every = "Every",
 	Breakfast = "Breakfast",
 	Meat = "Meat",
@@ -16,7 +16,7 @@ export enum FoodGroup {
 	Sugar = "Sugar"
 }
 
-export enum PortionUnit {
+export enum UnitOfMeasure {
 	Grams = "Grams",
 	Ml = "Ml",
 	Unit = "Unit",

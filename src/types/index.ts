@@ -1,4 +1,4 @@
-import { PlateType, FoodGroup, PortionUnit } from "../enums/Enums"
+import { DishType, FoodGroup, UnitOfMeasure } from "../enums/Enums"
 
 type BaseInfo = {
 	Id: string
@@ -6,22 +6,20 @@ type BaseInfo = {
 	CreateDate: string
 }
 
-export type PlateIngredient = {
+export type DishIngredient = {
 	IngredientId: string
-	Quantity: number
-	Unit: string
+	Servings: number
 }
 
-export type Plate = BaseInfo & {
-	Type: PlateType
+export type Dish = BaseInfo & {
+	Type: DishType
 	CanMake: boolean
-	Ingredients: PlateIngredient[]
+	Ingredients: DishIngredient[]
 }
 
 export type Ingredient = BaseInfo & {
 	InStock: boolean
 	FoodGroup?: FoodGroup | null
-	PortionDescription?: string | null
-	PortionUnit?: PortionUnit | null
-	EquivalentServings?: number | null
+	UnitOfMeasure?: UnitOfMeasure | null
+	Portion?: number | null
 }

@@ -9,9 +9,8 @@ const mapRow = (r: Record<string, any>) => ({
   Name: r.name,
   InStock: r.in_stock as boolean,
   FoodGroup: r.food_group ?? null,
-  PortionDescription: r.portion_description ?? null,
-  PortionUnit: r.portion_unit ?? null,
-  EquivalentServings: r.equivalent_servings ?? null,
+  UnitOfMeasure: r.unit_of_measure ?? null,
+  Portion: r.portion ?? null,
   CreateDate: r.create_date,
 })
 
@@ -31,7 +30,7 @@ router.get('/', async (_req: Request, res: Response) => {
 
 // POST /api/ingredients
 router.post('/', async (req: Request, res: Response) => {
-  const { Name, InStock, FoodGroup, PortionDescription, PortionUnit, EquivalentServings } = req.body
+  const { Name, InStock, FoodGroup, UnitOfMeasure, Portion } = req.body
 
   if (!Name || typeof Name !== 'string' || Name.trim() === '') {
     res.status(400).json({ error: 'Name is required' })
@@ -48,9 +47,8 @@ router.post('/', async (req: Request, res: Response) => {
       name: Name.trim(),
       in_stock: !!InStock,
       food_group: FoodGroup ?? null,
-      portion_description: PortionDescription ?? null,
-      portion_unit: PortionUnit ?? null,
-      equivalent_servings: EquivalentServings ?? null,
+      unit_of_measure: UnitOfMeasure ?? null,
+      portion: Portion ?? null,
       create_date: createDate,
     })
     .select()
@@ -66,7 +64,7 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/ingredients/:id
 router.put('/:id', async (req: Request, res: Response) => {
   const id = req.params.id as string
-  const { Name, InStock, FoodGroup, PortionDescription, PortionUnit, EquivalentServings } = req.body
+  const { Name, InStock, FoodGroup, UnitOfMeasure, Portion } = req.body
 
   if (!Name || typeof Name !== 'string' || Name.trim() === '') {
     res.status(400).json({ error: 'Name is required' })
@@ -79,9 +77,8 @@ router.put('/:id', async (req: Request, res: Response) => {
       name: Name.trim(),
       in_stock: !!InStock,
       food_group: FoodGroup ?? null,
-      portion_description: PortionDescription ?? null,
-      portion_unit: PortionUnit ?? null,
-      equivalent_servings: EquivalentServings ?? null,
+      unit_of_measure: UnitOfMeasure ?? null,
+      portion: Portion ?? null,
     })
     .eq('id', id)
     .select()

@@ -3,30 +3,28 @@
 export interface IngredientRow {
   id: string
   name: string
-  in_stock: number
+  in_stock: boolean
   food_group: string | null
-  portion_description: string | null
-  portion_unit: string | null
-  equivalent_servings: number | null
+  unit_of_measure: string | null
+  portion: number | null
   create_date: string
 }
 
-export interface PlateRow {
+export interface DishRow {
   id: string
   name: string
   type: string
   create_date: string
 }
 
-export interface PlateIngredientRow {
+export interface DishIngredientRow {
   id: string
-  plate_id: string
+  dish_id: string
   ingredient_id: string
-  quantity: number
-  unit: string
+  servings: number
 }
 
-export interface PlateIngredientJoined extends PlateIngredientRow {
+export interface DishIngredientJoined extends DishIngredientRow {
   ingredient_name: string
-  ingredient_in_stock: number
+  ingredient_in_stock: boolean
 }

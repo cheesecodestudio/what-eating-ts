@@ -1,12 +1,12 @@
 import useRuleta from "../hooks/useRuleta"
-import type { Plate } from "../types"
+import type { Dish } from "../types"
 
 type RuletaProps = {
-	platesData: Plate[]
+	dishesData: Dish[]
 }
 
-const Ruleta = ({ platesData }: RuletaProps) => {
-	const { RollButton, Buttons, RollAll } = useRuleta(platesData);
+const Ruleta = ({ dishesData }: RuletaProps) => {
+	const { RollButton, Buttons, RollAll } = useRuleta(dishesData);
 	return (
 		<>
 			<h1 className='text-2xl font-bold underline text-purple-700'>Ruleta</h1>

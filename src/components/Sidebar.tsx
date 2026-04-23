@@ -12,7 +12,7 @@ import {
 
 const links = [
 	{ to: '/ingredients', label: 'Ingredients', icon: faCarrot },
-	{ to: '/plates', label: 'Plates', icon: faUtensils },
+	{ to: '/dishes', label: 'Dishes', icon: faUtensils },
 	{ to: '/daily-menus', label: 'Daily Menus', icon: faCalendarDay },
 	{ to: '/weekly-plans', label: 'Weekly Plans', icon: faCalendarWeek },
 	{ to: '/monthly-plan', label: 'Monthly Plan', icon: faCalendar },
