@@ -42,7 +42,7 @@ const Pagination = <T,>({ Info, setCurrentItems }: PaginationProps<T>) => {
 
 	useEffect(() => {
 		setCurrentItems(Info.slice(startIndex, endIndex));
-	}, [currentPage])
+	}, [currentPage, Info])
 
 	return (
 		<nav className="flex items-center flex-column flex-wrap md:flex-row justify-between pt-4" aria-label="Table navigation">

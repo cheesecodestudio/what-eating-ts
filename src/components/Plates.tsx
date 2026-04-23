@@ -1,79 +1,32 @@
-import { Dispatch, SetStateAction, useState } from 'react'
+import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faAdd, faPen, faSquareCheck, faSquareXmark, faTrash, faXmark } from '@fortawesome/free-solid-svg-icons'
-import { generarId, dateFormat } from '../utils/utils.ts'
+import { dateFormat } from '../utils/utils.ts'
+import { apiPost, apiPut, apiDelete } from '../hooks/useApi.ts'
 import Pagination from './Pagination'
-import type { Plate, Ingredient } from '../types'
+import type { Plate, Ingredient, PlateIngredient } from '../types'
 import { PlateType } from '../enums/Enums.ts'
 
 type PlatesProps = {
 	platesData: Plate[]
-	setPlatesData: Dispatch<SetStateAction<Plate[]>>
 	ingredientsData: Ingredient[]
-	CheckPlates: (plates: Plate[] | void) => void
+	onRefetch: () => void
 }
 
-const Plates = ({
-	platesData,
-	setPlatesData,
-	ingredientsData,
-	CheckPlates
-}: PlatesProps) => {
+const Plates = ({ platesData, ingredientsData, onRefetch }: PlatesProps) => {
 	const [Id, setId] = useState('')
 	const [Name, setName] = useState('')
 	const [CreateDate, setCreateDate] = useState('')
 	const [Type, setType] = useState(PlateType.Every)
 	const [IngredientsInput, setIngredientsInput] = useState('')
-	const [Ingredients, setIngredients] = useState<string[]>([])
+	const [Ingredients, setIngredients] = useState<PlateIngredient[]>([])
 	const [CurrentItems, setCurrentItems] = useState<Plate[]>([])
 
 	const CODE_TO_ADDCHIP = 'Space';
 
 	const isCreate = () => Id === '';
 
-	const AddChipIngredient = (code: string) => {
-		if (code === CODE_TO_ADDCHIP) {
-			const ingredientExist: number = ingredientsData.findIndex(ingredient => ingredient.Name.toLowerCase() === IngredientsInput.trim().toLocaleLowerCase());
-			if (ingredientExist >= 0) {
-				const idExist: number = Ingredients.findIndex(id => id === ingredientsData[ingredientExist].Id);
-				if(idExist < 0){
-					setIngredients([...Ingredients, ingredientsData[ingredientExist].Id]);
-					setIngredientsInput("");
-				}
-			}
-		}
-	}
-
-	const RemoveChipIngredient = (id: Ingredient['Id']) => {
-		setIngredients(Ingredients.filter(i => i !== id));
-	}
-
-	const HandleSubmit = (e: React.FormEvent) => {
-		e.preventDefault()
-		let plateExist = platesData.findIndex(plate => plate.Id === Id);
-
-		let updatePlates = [...platesData];
-		if (plateExist >= 0) {
-			updatePlates[plateExist].Name = Name;
-			updatePlates[plateExist].Type = Type;
-			updatePlates[plateExist].Ingredients = Ingredients;
-			setPlatesData(updatePlates);
-		}
-		else {
-			let newPlate: Plate = {
-				Id: `P-${generarId()}`,
-				Name,
-				CreateDate,
-				Type,
-				CanMake: false,
-				Ingredients
-			};
-			updatePlates = [newPlate, ...platesData];
-			setPlatesData(updatePlates);
-		}
-		CheckPlates(updatePlates);
-
-		//clean inputs
+	const clearForm = () => {
 		setId('');
 		setName('');
 		setCreateDate('');
@@ -81,9 +34,42 @@ const Plates = ({
 		setIngredients([]);
 	}
 
+	const AddChipIngredient = (code: string) => {
+		if (code === CODE_TO_ADDCHIP) {
+			const found = ingredientsData.find(i => i.Name.toLowerCase() === IngredientsInput.trim().toLowerCase());
+			if (found) {
+				const alreadyAdded = Ingredients.some(pi => pi.IngredientId === found.Id);
+				if (!alreadyAdded) {
+					setIngredients([...Ingredients, { IngredientId: found.Id, Quantity: 1, Unit: 'unit' }]);
+					setIngredientsInput('');
+				}
+			}
+		}
+	}
+
+	const RemoveChipIngredient = (ingredientId: string) => {
+		setIngredients(Ingredients.filter(pi => pi.IngredientId !== ingredientId));
+	}
+
+	const HandleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault()
+		const payload = { Name, Type, Ingredients }
+		try {
+			if (isCreate()) {
+				await apiPost<Plate>('/api/plates', payload)
+			} else {
+				await apiPut<Plate>(`/api/plates/${Id}`, payload)
+			}
+			onRefetch()
+			clearForm()
+		} catch (err) {
+			alert((err as Error).message)
+		}
+	}
+
 	const FillInputs = (id: Plate['Id']) => {
-		const plate = platesData.find(plate => plate.Id === id);
-		if (plate !== undefined) {
+		const plate = platesData.find(p => p.Id === id);
+		if (plate) {
 			setId(plate.Id);
 			setName(plate.Name);
 			setCreateDate(plate.CreateDate);
@@ -92,13 +78,17 @@ const Plates = ({
 		}
 	}
 
-	const RemovePlate = (id: Plate['Id']) => {
-		const plate = platesData.find(plate => plate.Id === id);
-		if (plate !== undefined) {
+	const RemovePlate = async (id: Plate['Id']) => {
+		const plate = platesData.find(p => p.Id === id);
+		if (plate) {
 			const answer = confirm(`Would you like to remove "${plate.Name}" plate?`)
 			if (answer) {
-				const removePlate = platesData.filter(i => i.Id !== plate.Id);
-				setPlatesData(removePlate);
+				try {
+					await apiDelete(`/api/plates/${id}`)
+					onRefetch()
+				} catch (err) {
+					alert((err as Error).message)
+				}
 			}
 		}
 	}
@@ -108,7 +98,7 @@ const Plates = ({
 			<h1 className='text-2xl font-bold underline text-purple-700'>Plates</h1>
 			<form onSubmit={HandleSubmit}>
 				<table className='w-full text-lg text-left rtl:text-right text-gray-500'>
-					<thead className='text-2xl text-gray-700 uppercase bg-gray-50  text-center'>
+					<thead className='text-2xl text-gray-700 uppercase bg-gray-50 text-center'>
 						<tr>
 							<th scope="col" className="px-6 py-3">Name</th>
 							<th scope="col" className="px-6 py-3">Date</th>
@@ -137,11 +127,11 @@ const Plates = ({
 									}
 								</th>
 								<th scope="row" className="px-6 py-4 font-medium text-gray-900 flex flex-wrap">
-									{data.Ingredients.map(id => {
-										const ingredient = ingredientsData.find(ingredientInfo => ingredientInfo.Id === id);
+									{data.Ingredients.map(pi => {
+										const ingredient = ingredientsData.find(i => i.Id === pi.IngredientId);
 										return ingredient !== undefined ? (
 											<span key={`${data.Id}-${ingredient.Id}`} className={`${ingredient.InStock ? "bg-green-100 text-green-800" : "bg-pink-100 text-pink-800"} text-sm font-medium me-2 px-2.5 py-0.5 rounded whitespace-nowrap my-1`}>{ingredient.Name}</span>
-										) : (<></>)
+										) : null
 									})}
 								</th>
 								<th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
@@ -198,14 +188,14 @@ const Plates = ({
 							</td>
 							<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
 								<div className='flex items-start flex-wrap'>
-									{Ingredients.length > 0 ? Ingredients.map(id => {
-										const ingredient = ingredientsData.find(ingredientInfo => ingredientInfo.Id === id);
+									{Ingredients.length > 0 ? Ingredients.map(pi => {
+										const ingredient = ingredientsData.find(i => i.Id === pi.IngredientId);
 										return ingredient !== undefined ? (
 											<span key={`formPlates-${ingredient.Id}`} className={`${ingredient.InStock ? "bg-green-100 text-green-800" : "bg-pink-100 text-pink-800"} text-sm font-medium me-2 px-2.5 py-0.5 rounded my-1`}>
 												{ingredient.Name}
 												<FontAwesomeIcon className='pl-1 cursor-pointer' onClick={() => RemoveChipIngredient(ingredient.Id)} icon={faXmark} />
 											</span>
-										) : (<></>)
+										) : null
 									}) : (
 										<span key="sample" className="bg-fuchsia-100 text-fuchsia-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded">ingredient...</span>
 									)}
