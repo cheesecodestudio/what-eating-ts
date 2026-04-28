@@ -20,6 +20,7 @@ export type Dish = BaseInfo & {
 export type Ingredient = BaseInfo & {
 	InStock: boolean
 	FoodGroup?: FoodGroup | null
+	FoodGroups?: FoodGroup[] | null
 	UnitOfMeasure?: UnitOfMeasure | null
 	Portion?: number | null
 }

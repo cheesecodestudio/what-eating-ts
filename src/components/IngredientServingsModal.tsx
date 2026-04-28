@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import type { Ingredient } from '../types'
-import { UnitOfMeasure } from '../enums/Enums.ts'
+import { FoodGroup, UnitOfMeasure } from '../enums/Enums.ts'
 
 interface IngredientServingsModalProps {
 	ingredient: Ingredient
@@ -35,8 +35,17 @@ const formatPortion = (amount: number, uom: string): string => {
 	return String(amount)
 }
 
+const getIngredientFoodGroups = (ingredient: Ingredient): FoodGroup[] => {
+	const fromArray = ingredient.FoodGroups ?? []
+	if (fromArray.length > 0) {
+		return [...new Set(fromArray)]
+	}
+	return ingredient.FoodGroup ? [ingredient.FoodGroup] : []
+}
+
 const IngredientServingsModal = ({ ingredient, onConfirm, onCancel }: IngredientServingsModalProps) => {
 	const [servings, setServings] = useState(1)
+	const foodGroups = getIngredientFoodGroups(ingredient)
 
 	const hasPortion = ingredient.Portion != null && ingredient.UnitOfMeasure != null
 
@@ -76,11 +85,11 @@ const IngredientServingsModal = ({ ingredient, onConfirm, onCancel }: Ingredient
 				<p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Add ingredient</p>
 				<h2 className="text-xl font-bold text-gray-900 pr-8">{ingredient.Name}</h2>
 				<div className="flex flex-wrap gap-2 mt-2 mb-5">
-					{ingredient.FoodGroup && (
-						<span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-							{ingredient.FoodGroup}
+					{foodGroups.map(group => (
+						<span key={`${ingredient.Id}-${group}`} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+							{group}
 						</span>
-					)}
+					))}
 					<span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ingredient.InStock ? 'bg-green-100 text-green-700' : 'bg-pink-100 text-pink-700'}`}>
 						{ingredient.InStock ? 'In stock' : 'No stock'}
 					</span>

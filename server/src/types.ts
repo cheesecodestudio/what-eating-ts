@@ -5,6 +5,7 @@ export interface IngredientRow {
   name: string
   in_stock: boolean
   food_group: string | null
+  food_groups: string[] | null
   unit_of_measure: string | null
   portion: number | null
   create_date: string

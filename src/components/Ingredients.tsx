@@ -48,12 +48,21 @@ const formatPortion = (portion: number, uom: string): string => {
 	return String(portion)
 }
 
+const getIngredientFoodGroups = (ingredient: Ingredient): FoodGroup[] => {
+	const fromArray = ingredient.FoodGroups ?? []
+	if (fromArray.length > 0) {
+		return [...new Set(fromArray)]
+	}
+	return ingredient.FoodGroup ? [ingredient.FoodGroup] : []
+}
+
 const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 	const [Id, setId] = useState('')
 	const [Name, setName] = useState('')
 	const [CreateDate, setCreateDate] = useState('')
 	const [InStock, setInStock] = useState(false)
 	const [IngFoodGroup, setIngFoodGroup] = useState<FoodGroup | ''>('')
+	const [IngSecondaryFoodGroup, setIngSecondaryFoodGroup] = useState<FoodGroup | ''>('')
 	const [IngUnitOfMeasure, setIngUnitOfMeasure] = useState<UnitOfMeasure | ''>('')
 	const [CurrentItems, setCurrentItems] = useState<Ingredient[]>([])
 	const [Search, setSearch] = useState('')
@@ -89,16 +98,19 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 		setCreateDate('');
 		setInStock(false);
 		setIngFoodGroup('');
+		setIngSecondaryFoodGroup('');
 		setIngUnitOfMeasure('');
 		setPortion('');
 	}
 
 	const HandleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
+		const foodGroups = [...new Set([IngFoodGroup, IngSecondaryFoodGroup].filter((g): g is FoodGroup => g !== ''))]
 		const payload = {
 			Name,
 			InStock,
-			FoodGroup: IngFoodGroup || null,
+			FoodGroup: IngFoodGroup || foodGroups[0] || null,
+			FoodGroups: foodGroups.length > 0 ? foodGroups : null,
 			UnitOfMeasure: IngUnitOfMeasure || null,
 			Portion: Portion === '' ? null : Portion,
 		}
@@ -118,11 +130,16 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 	const FillInputs = (id: Ingredient['Id']) => {
 		const ingredient = ingredientsData.find(i => i.Id === id);
 		if (ingredient) {
+			const groups = getIngredientFoodGroups(ingredient)
+			const primary = ingredient.FoodGroup ?? groups[0] ?? ''
+			const secondary = groups.find(g => g !== primary) ?? ''
+
 			setId(ingredient.Id);
 			setName(ingredient.Name);
 			setCreateDate(ingredient.CreateDate);
 			setInStock(ingredient.InStock);
-			setIngFoodGroup(ingredient.FoodGroup ?? '');
+			setIngFoodGroup(primary);
+			setIngSecondaryFoodGroup(secondary);
 			setIngUnitOfMeasure(ingredient.UnitOfMeasure ?? '');
 			setPortion(ingredient.Portion ?? '');
 		}
@@ -144,11 +161,13 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 	}
 
 	const ToggleInStock = async (ingredient: Ingredient) => {
+		const foodGroups = getIngredientFoodGroups(ingredient)
 		try {
 			await apiPut<Ingredient>(`/api/ingredients/${ingredient.Id}`, {
 				Name: ingredient.Name,
 				InStock: !ingredient.InStock,
-				FoodGroup: ingredient.FoodGroup ?? null,
+				FoodGroup: ingredient.FoodGroup ?? foodGroups[0] ?? null,
+				FoodGroups: foodGroups.length > 0 ? foodGroups : null,
 				UnitOfMeasure: ingredient.UnitOfMeasure ?? null,
 				Portion: ingredient.Portion ?? null,
 			})
@@ -221,13 +240,18 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 								/>
 								</td>
 								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								{data.FoodGroup
-									? <FontAwesomeIcon
-										icon={foodGroupMeta[data.FoodGroup].icon}
-										className={foodGroupMeta[data.FoodGroup].color}
-										title={data.FoodGroup}
-										size="xl"
-									  />
+								{getIngredientFoodGroups(data).length > 0
+									? <div className="flex items-center justify-center gap-2">
+										{getIngredientFoodGroups(data).map(group => (
+											<FontAwesomeIcon
+												key={`${data.Id}-${group}`}
+												icon={foodGroupMeta[group].icon}
+												className={foodGroupMeta[group].color}
+												title={group}
+												size="xl"
+											/>
+										))}
+									</div>
 									: <span className="text-gray-400">—</span>
 								}
 								</td>
@@ -291,13 +315,29 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 							</td>
 							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
 								<select
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 mb-1"
 									value={IngFoodGroup}
-									onChange={e => setIngFoodGroup(e.target.value as FoodGroup | '')}
+									onChange={e => {
+										const nextPrimary = e.target.value as FoodGroup | ''
+										setIngFoodGroup(nextPrimary)
+										if (nextPrimary !== '' && IngSecondaryFoodGroup === nextPrimary) {
+											setIngSecondaryFoodGroup('')
+										}
+									}}
 								>
-									<option value="">— none —</option>
+									<option value="">Primary group</option>
 									{Object.values(FoodGroup).map(g => (
 										<option key={g} value={g}>{g}</option>
+									))}
+								</select>
+								<select
+									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+									value={IngSecondaryFoodGroup}
+									onChange={e => setIngSecondaryFoodGroup(e.target.value as FoodGroup | '')}
+								>
+									<option value="">Also counts as...</option>
+									{Object.values(FoodGroup).map(g => (
+										<option key={`secondary-${g}`} value={g} disabled={g === IngFoodGroup}>{g}</option>
 									))}
 								</select>
 							</td>
@@ -321,13 +361,12 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 								? <select
 									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
 									value={Portion}
-									onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))}
-								  >
+									onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))}>
 									<option value="">— none —</option>
 									{CUP_FRACTIONS.map(f => (
 										<option key={f.label} value={f.value}>{f.label} cup</option>
 									))}
-								  </select>
+									</select>
 								: <input
 									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
 									type="number"
@@ -335,8 +374,7 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 									step="0.5"
 									placeholder={IngUnitOfMeasure === UnitOfMeasure.Grams ? '30' : IngUnitOfMeasure === UnitOfMeasure.Ml ? '250' : '1'}
 									value={Portion}
-									onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))}
-								  />
+									onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))} />
 							}
 							</td>
 							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
