@@ -10,28 +10,45 @@ interface IngredientServingsModalProps {
 	onCancel: () => void
 }
 
-const CUP_FRACTIONS = [
-	{ label: '1/8', value: 0.125 },
-	{ label: '1/4', value: 0.25  },
+// Standard fractional parts for cup amounts (no whole-number entries)
+const FRAC_SNAPS = [
+	{ label: '',    value: 0     },
+	{ label: '1/8', value: 1/8   },
+	{ label: '1/4', value: 1/4   },
 	{ label: '1/3', value: 1/3   },
-	{ label: '1/2', value: 0.5   },
+	{ label: '1/2', value: 1/2   },
 	{ label: '2/3', value: 2/3   },
-	{ label: '3/4', value: 0.75  },
-	{ label: '1',   value: 1     },
-	{ label: '1½',  value: 1.5   },
-	{ label: '2',   value: 2     },
+	{ label: '3/4', value: 3/4   },
 ] as const
 
+// Correctly formats any cup amount by decomposing into whole + fractional part.
+const formatCupAmount = (amount: number): string => {
+	const whole = Math.floor(amount)
+	const frac = amount - whole
+
+	const nearestFrac = [...FRAC_SNAPS].reduce((best, f) =>
+		Math.abs(f.value - frac) < Math.abs(best.value - frac) ? f : best
+	)
+	// If frac is closer to 1 than to the nearest snap, round up the whole
+	const roundsUp = Math.abs(frac - 1) < Math.abs(frac - nearestFrac.value)
+
+	const finalWhole = roundsUp ? whole + 1 : whole
+	const fracLabel  = roundsUp ? '' : nearestFrac.label
+	const total      = finalWhole + (fracLabel ? nearestFrac.value : 0)
+	const unit       = total === 1 ? 'cup' : 'cups'
+
+	if (finalWhole === 0) return fracLabel ? `${fracLabel} ${unit}` : `0 ${unit}`
+	if (!fracLabel)       return `${finalWhole} ${unit}`
+	return `${finalWhole} ${fracLabel} ${unit}`
+}
+
 const formatPortion = (amount: number, uom: string): string => {
-	if (uom === UnitOfMeasure.Cup) {
-		const match = [...CUP_FRACTIONS].reduce((best, f) =>
-			Math.abs(f.value - amount) < Math.abs(best.value - amount) ? f : best
-		)
-		return `${match.label} cup${amount > 1 ? 's' : ''}`
-	}
-	if (uom === UnitOfMeasure.Grams) return `${amount}g`
-	if (uom === UnitOfMeasure.Ml)    return `${amount}ml`
-	if (uom === UnitOfMeasure.Unit)  return `×${amount}`
+	if (uom === UnitOfMeasure.Cup)        return formatCupAmount(amount)
+	if (uom === UnitOfMeasure.Grams)      return `${amount}g`
+	if (uom === UnitOfMeasure.Ml)         return `${amount}ml`
+	if (uom === UnitOfMeasure.Unit)       return `×${amount}`
+	if (uom === UnitOfMeasure.Tablespoon) return `${amount} tbsp`
+	if (uom === UnitOfMeasure.Teaspoon)   return `${amount} tsp`
 	return String(amount)
 }
 

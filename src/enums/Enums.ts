@@ -20,5 +20,7 @@ export enum UnitOfMeasure {
 	Grams = "Grams",
 	Ml = "Ml",
 	Unit = "Unit",
-	Cup = "Cup"
+	Cup = "Cup",
+	Tablespoon = "Tablespoon",
+	Teaspoon = "Teaspoon"
 }

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
-import { faAdd, faPen, faTrash, faMagnifyingGlass, faCheese, faWheatAwn, faDrumstickBite, faCarrot, faAppleWhole, faDroplet, faCandyCane, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons'
+import { faAdd, faPen, faTrash, faMagnifyingGlass, faCheese, faWheatAwn, faDrumstickBite, faCarrot, faAppleWhole, faDroplet, faCandyCane, faSort, faSortUp, faSortDown, faCheck, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { dateFormat } from '../utils/utils.ts'
 import { apiPost, apiPut, apiDelete } from '../hooks/useApi.ts'
 import Pagination from './Pagination'
@@ -42,9 +42,11 @@ const formatPortion = (portion: number, uom: string): string => {
 		)
 		return `${match.label} cup`
 	}
-	if (uom === UnitOfMeasure.Grams) return `${portion}g`
-	if (uom === UnitOfMeasure.Ml)    return `${portion}ml`
-	if (uom === UnitOfMeasure.Unit)  return `×${portion}`
+	if (uom === UnitOfMeasure.Grams)      return `${portion}g`
+	if (uom === UnitOfMeasure.Ml)         return `${portion}ml`
+	if (uom === UnitOfMeasure.Unit)       return `×${portion}`
+	if (uom === UnitOfMeasure.Tablespoon) return `${portion} tbsp`
+	if (uom === UnitOfMeasure.Teaspoon)   return `${portion} tsp`
 	return String(portion)
 }
 
@@ -69,6 +71,14 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 	const [Portion, setPortion] = useState<number | ''>('')
 	const [sortCol, setSortCol] = useState<'Name' | 'CreateDate' | 'InStock'>('Name')
 	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+	const [showFormRow, setShowFormRow] = useState(false)
+	const [editingIngredientId, setEditingIngredientId] = useState<Ingredient['Id'] | null>(null)
+
+	const OpenCreateForm = () => {
+		clearForm()
+		setEditingIngredientId(null)
+		setShowFormRow(true)
+	}
 
 	const filteredData = useMemo(
 		() => ingredientsData.filter(i =>
@@ -103,10 +113,9 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 		setPortion('');
 	}
 
-	const HandleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault()
+	const buildPayload = () => {
 		const foodGroups = [...new Set([IngFoodGroup, IngSecondaryFoodGroup].filter((g): g is FoodGroup => g !== ''))]
-		const payload = {
+		return {
 			Name,
 			InStock,
 			FoodGroup: IngFoodGroup || foodGroups[0] || null,
@@ -114,14 +123,16 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 			UnitOfMeasure: IngUnitOfMeasure || null,
 			Portion: Portion === '' ? null : Portion,
 		}
+	}
+
+	const HandleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault()
+		const payload = buildPayload()
 		try {
-			if (isCreate()) {
-				await apiPost<Ingredient>('/api/ingredients', payload)
-			} else {
-				await apiPut<Ingredient>(`/api/ingredients/${Id}`, payload)
-			}
+			await apiPost<Ingredient>('/api/ingredients', payload)
 			onRefetch()
 			clearForm()
+			setShowFormRow(false)
 		} catch (err) {
 			alert((err as Error).message)
 		}
@@ -142,6 +153,21 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 			setIngSecondaryFoodGroup(secondary);
 			setIngUnitOfMeasure(ingredient.UnitOfMeasure ?? '');
 			setPortion(ingredient.Portion ?? '');
+			setShowFormRow(false)
+			setEditingIngredientId(ingredient.Id)
+		}
+	}
+
+	const SaveInlineEdit = async () => {
+		if (!editingIngredientId) return
+		const payload = buildPayload()
+		try {
+			await apiPut<Ingredient>(`/api/ingredients/${editingIngredientId}`, payload)
+			onRefetch()
+			clearForm()
+			setEditingIngredientId(null)
+		} catch (err) {
+			alert((err as Error).message)
 		}
 	}
 
@@ -177,6 +203,10 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 		}
 	}
 
+	const isAnotherIngredientBeingEdited = (id: Ingredient['Id']) =>
+		editingIngredientId !== null && editingIngredientId !== id
+	const isInlineEditing = editingIngredientId !== null
+
 	const handleSort = (col: 'Name' | 'CreateDate' | 'InStock') => {
 		if (col === sortCol) {
 			setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -196,6 +226,17 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 	return (
 		<>
 			<h1 className='text-2xl font-bold underline text-purple-700'>Ingredients</h1>
+			<div className="my-3">
+				<button
+					type="button"
+					onClick={OpenCreateForm}
+					disabled={isInlineEditing}
+					className={`text-white font-medium rounded-lg text-sm px-4 py-2 focus:outline-none ${isInlineEditing ? 'bg-gray-400 cursor-not-allowed opacity-60' : 'bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300'}`}
+				>
+					<FontAwesomeIcon icon={faAdd} className="mr-2" />
+					New ingredient
+				</button>
+			</div>
 			<div className="relative max-w-sm my-3">
 				<span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
 					<FontAwesomeIcon icon={faMagnifyingGlass} />
@@ -222,8 +263,236 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 						</tr>
 					</thead>
 					<tbody>
+						{showFormRow && (
+							<tr key={'formIngredient'} className="bg-white border-b text-center">
+								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<input
+										className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+										name='Name'
+										type="text"
+										placeholder="Banana"
+										value={Name}
+										onChange={e => setName(e.target.value)}
+										required
+									/>
+								</td>
+								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<input
+										className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+										name='CreateDate'
+										type="date"
+										value={CreateDate}
+										onChange={e => setCreateDate(e.target.value)}
+										disabled={!isCreate()}
+									/>
+								</td>
+								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<input
+										id="in-stock-checkbox"
+										type="checkbox"
+										className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+										name='InStock'
+										checked={InStock}
+										onChange={e => setInStock(e.target.checked)}
+									/>
+									<label htmlFor="in-stock-checkbox" className="ms-2 font-medium text-gray-900">In Stock</label>
+								</td>
+								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<select
+										className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 mb-1"
+										value={IngFoodGroup}
+										onChange={e => {
+											const nextPrimary = e.target.value as FoodGroup | ''
+											setIngFoodGroup(nextPrimary)
+											if (nextPrimary !== '' && IngSecondaryFoodGroup === nextPrimary) {
+												setIngSecondaryFoodGroup('')
+											}
+										}}
+									>
+										<option value="">Primary group</option>
+										{Object.values(FoodGroup).map(g => (
+											<option key={g} value={g}>{g}</option>
+										))}
+									</select>
+									<select
+										className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+										value={IngSecondaryFoodGroup}
+										onChange={e => setIngSecondaryFoodGroup(e.target.value as FoodGroup | '')}
+									>
+										<option value="">Also counts as...</option>
+										{Object.values(FoodGroup).map(g => (
+											<option key={`secondary-${g}`} value={g} disabled={g === IngFoodGroup}>{g}</option>
+										))}
+									</select>
+								</td>
+								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<select
+										className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+										value={IngUnitOfMeasure}
+									onChange={e => {
+										setIngUnitOfMeasure(e.target.value as UnitOfMeasure | '')
+										setPortion('')
+									}}
+								>
+									<option value="">— none —</option>
+									{Object.values(UnitOfMeasure).map(u => (
+										<option key={u} value={u}>{u}</option>
+									))}
+								</select>
+							</td>
+							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+								{IngUnitOfMeasure === UnitOfMeasure.Cup
+									? <select
+										className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+										value={Portion}
+										onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))}>
+										<option value="">— none —</option>
+										{CUP_FRACTIONS.map(f => (
+											<option key={f.label} value={f.value}>{f.label} cup</option>
+										))}
+										</select>
+									: <input
+										className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+										type="number"
+										min="0"
+										step="0.5"
+										placeholder={IngUnitOfMeasure === UnitOfMeasure.Grams ? '30' : IngUnitOfMeasure === UnitOfMeasure.Ml ? '250' : '1'}
+										value={Portion}
+										onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))} />
+								}
+								</td>
+								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<button
+										type="submit"
+										className="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none"
+									>
+										<FontAwesomeIcon icon={faCheck} />
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											clearForm()
+											setShowFormRow(false)
+											setEditingIngredientId(null)
+										}}
+										className="text-white bg-gray-400 hover:bg-gray-500 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-3 py-2.5 mb-2 focus:outline-none"
+									>
+										<FontAwesomeIcon icon={faXmark} />
+									</button>
+								</td>
+							</tr>
+						)}
 						{CurrentItems.length > 0 ? CurrentItems.map(data => (
-							<tr key={data.Id} className="bg-white border-b text-center">
+							<tr key={data.Id} className={`${editingIngredientId === data.Id ? 'bg-amber-50' : 'bg-white'} border-b text-center`}>
+								{editingIngredientId === data.Id ? (
+									<>
+										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<input
+												className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+												type="text"
+												value={Name}
+												onChange={e => setName(e.target.value)}
+												required
+											/>
+										</td>
+										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<input
+												className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+												type="date"
+												value={CreateDate}
+												disabled
+											/>
+										</td>
+										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<input
+												type="checkbox"
+												className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+												checked={InStock}
+												onChange={e => setInStock(e.target.checked)}
+											/>
+										</td>
+										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<select
+												className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 mb-1"
+												value={IngFoodGroup}
+												onChange={e => {
+													const nextPrimary = e.target.value as FoodGroup | ''
+													setIngFoodGroup(nextPrimary)
+													if (nextPrimary !== '' && IngSecondaryFoodGroup === nextPrimary) {
+														setIngSecondaryFoodGroup('')
+													}
+												}}
+											>
+												<option value="">Primary group</option>
+												{Object.values(FoodGroup).map(g => (
+													<option key={g} value={g}>{g}</option>
+												))}
+											</select>
+											<select
+												className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+												value={IngSecondaryFoodGroup}
+												onChange={e => setIngSecondaryFoodGroup(e.target.value as FoodGroup | '')}
+											>
+												<option value="">Also counts as...</option>
+												{Object.values(FoodGroup).map(g => (
+													<option key={`secondary-${g}`} value={g} disabled={g === IngFoodGroup}>{g}</option>
+												))}
+											</select>
+										</td>
+										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<select
+												className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+												value={IngUnitOfMeasure}
+												onChange={e => {
+													setIngUnitOfMeasure(e.target.value as UnitOfMeasure | '')
+													setPortion('')
+												}}
+											>
+												<option value="">— none —</option>
+												{Object.values(UnitOfMeasure).map(u => (
+													<option key={u} value={u}>{u}</option>
+												))}
+											</select>
+										</td>
+										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											{IngUnitOfMeasure === UnitOfMeasure.Cup
+												? <select
+													className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+													value={Portion}
+													onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))}>
+													<option value="">— none —</option>
+													{CUP_FRACTIONS.map(f => (
+														<option key={f.label} value={f.value}>{f.label} cup</option>
+													))}
+												</select>
+												: <input
+													className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+													type="number"
+													min="0"
+													step="0.5"
+													placeholder={IngUnitOfMeasure === UnitOfMeasure.Grams ? '30' : IngUnitOfMeasure === UnitOfMeasure.Ml ? '250' : '1'}
+													value={Portion}
+													onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))} />
+											}
+										</td>
+										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<button type="button" onClick={SaveInlineEdit} className="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none">
+												<FontAwesomeIcon icon={faCheck} />
+											</button>
+											<button
+												type="button"
+												onClick={() => {
+													clearForm()
+													setEditingIngredientId(null)
+												}}
+												className="text-white bg-gray-400 hover:bg-gray-500 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-3 py-2.5 mb-2 focus:outline-none"
+											>
+												<FontAwesomeIcon icon={faXmark} />
+											</button>
+										</td>
+									</>
+								) : (
+									<>
 								<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
 									{data.Name}
 								</td>
@@ -265,13 +534,20 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 								}
 							</td>
 							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-									<button type="button" onClick={() => FillInputs(data.Id)} className="text-white bg-yellow-700 hover:bg-yellow-800 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none">
+									<button
+										type="button"
+										onClick={() => FillInputs(data.Id)}
+										disabled={isAnotherIngredientBeingEdited(data.Id)}
+										className={`text-white font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none ${isAnotherIngredientBeingEdited(data.Id) ? 'bg-gray-400 cursor-not-allowed opacity-60' : 'bg-yellow-700 hover:bg-yellow-800 focus:ring-4 focus:ring-yellow-300'}`}
+									>
 										<FontAwesomeIcon icon={faPen} />
 									</button>
 									<button type="button" onClick={() => RemoveIngredient(data.Id)} className="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none">
 										<FontAwesomeIcon icon={faTrash} />
 									</button>
 								</td>
+									</>
+								)}
 							</tr>
 						)) : (
 							<tr key="message-ingredient" className="bg-white border-b text-center">
@@ -280,112 +556,6 @@ const Ingredients = ({ ingredientsData, onRefetch }: IngredientsProps) => {
 								</th>
 							</tr>
 						)}
-						<tr key={'formIngredient'} className="bg-white border-b text-center">
-							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<input
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-									name='Name'
-									type="text"
-									placeholder="Banana"
-									value={Name}
-									onChange={e => setName(e.target.value)}
-									required
-								/>
-							</td>
-							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<input
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-									name='CreateDate'
-									type="date"
-									value={CreateDate}
-									onChange={e => setCreateDate(e.target.value)}
-									disabled={!isCreate()}
-								/>
-							</td>
-							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<input
-									id="in-stock-checkbox"
-									type="checkbox"
-									className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-									name='InStock'
-									checked={InStock}
-									onChange={e => setInStock(e.target.checked)}
-								/>
-								<label htmlFor="in-stock-checkbox" className="ms-2 font-medium text-gray-900">In Stock</label>
-							</td>
-							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<select
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 mb-1"
-									value={IngFoodGroup}
-									onChange={e => {
-										const nextPrimary = e.target.value as FoodGroup | ''
-										setIngFoodGroup(nextPrimary)
-										if (nextPrimary !== '' && IngSecondaryFoodGroup === nextPrimary) {
-											setIngSecondaryFoodGroup('')
-										}
-									}}
-								>
-									<option value="">Primary group</option>
-									{Object.values(FoodGroup).map(g => (
-										<option key={g} value={g}>{g}</option>
-									))}
-								</select>
-								<select
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-									value={IngSecondaryFoodGroup}
-									onChange={e => setIngSecondaryFoodGroup(e.target.value as FoodGroup | '')}
-								>
-									<option value="">Also counts as...</option>
-									{Object.values(FoodGroup).map(g => (
-										<option key={`secondary-${g}`} value={g} disabled={g === IngFoodGroup}>{g}</option>
-									))}
-								</select>
-							</td>
-							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<select
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-									value={IngUnitOfMeasure}
-								onChange={e => {
-									setIngUnitOfMeasure(e.target.value as UnitOfMeasure | '')
-									setPortion('')
-								}}
-							>
-								<option value="">— none —</option>
-								{Object.values(UnitOfMeasure).map(u => (
-									<option key={u} value={u}>{u}</option>
-								))}
-							</select>
-						</td>
-						<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-							{IngUnitOfMeasure === UnitOfMeasure.Cup
-								? <select
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-									value={Portion}
-									onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))}>
-									<option value="">— none —</option>
-									{CUP_FRACTIONS.map(f => (
-										<option key={f.label} value={f.value}>{f.label} cup</option>
-									))}
-									</select>
-								: <input
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-									type="number"
-									min="0"
-									step="0.5"
-									placeholder={IngUnitOfMeasure === UnitOfMeasure.Grams ? '30' : IngUnitOfMeasure === UnitOfMeasure.Ml ? '250' : '1'}
-									value={Portion}
-									onChange={e => setPortion(e.target.value === '' ? '' : Number(e.target.value))} />
-							}
-							</td>
-							<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<button
-									type="submit"
-									className={`text-white ${isCreate() ? "bg-green-700 hover:bg-green-800 focus:ring-green-300" : "bg-yellow-700 hover:bg-yellow-800 focus:ring-yellow-300"} focus:ring-4 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none`}
-								>
-									<FontAwesomeIcon icon={isCreate() ? faAdd : faPen} />
-								</button>
-							</td>
-						</tr>
 					</tbody>
 				</table>
 			</form>

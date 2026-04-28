@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faAdd, faPen, faSquareCheck, faSquareXmark, faTrash, faXmark, faSort, faSortUp, faSortDown, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
+import { faAdd, faPen, faSquareCheck, faSquareXmark, faTrash, faXmark, faSort, faSortUp, faSortDown, faMagnifyingGlass, faCheck } from '@fortawesome/free-solid-svg-icons'
 import { dateFormat } from '../utils/utils.ts'
 import { apiPost, apiPut, apiDelete } from '../hooks/useApi.ts'
 import Pagination from './Pagination'
@@ -27,6 +27,14 @@ const Dishes = ({ dishesData, ingredientsData, onRefetch }: DishesProps) => {
 	const [sortCol, setSortCol] = useState<'Name' | 'CreateDate' | 'Type'>('Name')
 	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 	const [pendingIngredient, setPendingIngredient] = useState<Ingredient | null>(null)
+	const [showFormRow, setShowFormRow] = useState(false)
+	const [editingDishId, setEditingDishId] = useState<Dish['Id'] | null>(null)
+
+	const OpenCreateForm = () => {
+		clearForm()
+		setEditingDishId(null)
+		setShowFormRow(true)
+	}
 
 	const OpenIngredientModal = (ingredient: Ingredient) => {
 		setIngredientsInput('')
@@ -64,13 +72,10 @@ const Dishes = ({ dishesData, ingredientsData, onRefetch }: DishesProps) => {
 		e.preventDefault()
 		const payload = { Name, Type, Ingredients }
 		try {
-			if (isCreate()) {
-				await apiPost<Dish>('/api/dishes', payload)
-			} else {
-				await apiPut<Dish>(`/api/dishes/${Id}`, payload)
-			}
+			await apiPost<Dish>('/api/dishes', payload)
 			onRefetch()
 			clearForm()
+			setShowFormRow(false)
 		} catch (err) {
 			alert((err as Error).message)
 		}
@@ -84,6 +89,21 @@ const Dishes = ({ dishesData, ingredientsData, onRefetch }: DishesProps) => {
 			setCreateDate(dish.CreateDate);
 			setType(dish.Type);
 			setIngredients(dish.Ingredients);
+			setShowFormRow(false)
+			setEditingDishId(dish.Id)
+		}
+	}
+
+	const SaveInlineEdit = async () => {
+		if (!editingDishId) return
+		const payload = { Name, Type, Ingredients }
+		try {
+			await apiPut<Dish>(`/api/dishes/${editingDishId}`, payload)
+			onRefetch()
+			clearForm()
+			setEditingDishId(null)
+		} catch (err) {
+			alert((err as Error).message)
 		}
 	}
 
@@ -120,6 +140,10 @@ const Dishes = ({ dishesData, ingredientsData, onRefetch }: DishesProps) => {
 		[filteredData, sortCol, sortDir]
 	)
 
+	const isAnotherDishBeingEdited = (id: Dish['Id']) =>
+		editingDishId !== null && editingDishId !== id
+	const isInlineEditing = editingDishId !== null
+
 	const handleSort = (col: 'Name' | 'CreateDate' | 'Type') => {
 		if (col === sortCol) {
 			setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -139,6 +163,17 @@ const Dishes = ({ dishesData, ingredientsData, onRefetch }: DishesProps) => {
 	return (
 		<>
 			<h1 className='text-2xl font-bold underline text-purple-700'>Dishes</h1>
+			<div className="my-3">
+				<button
+					type="button"
+					onClick={OpenCreateForm}
+					disabled={isInlineEditing}
+					className={`text-white font-medium rounded-lg text-sm px-4 py-2 focus:outline-none ${isInlineEditing ? 'bg-gray-400 cursor-not-allowed opacity-60' : 'bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300'}`}
+				>
+					<FontAwesomeIcon icon={faAdd} className="mr-2" />
+					New dish
+				</button>
+			</div>
 			<div className="relative max-w-sm my-3">
 				<span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
 					<FontAwesomeIcon icon={faMagnifyingGlass} />
@@ -164,8 +199,197 @@ const Dishes = ({ dishesData, ingredientsData, onRefetch }: DishesProps) => {
 						</tr>
 					</thead>
 					<tbody>
+						{showFormRow && (
+							<tr key={'formDishes'} className="bg-white border-b text-center">
+								<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<input
+										className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+										name='Name'
+										type="text"
+										placeholder="Burrito"
+										value={Name}
+										onChange={e => setName(e.target.value)}
+										required
+									/>
+								</td>
+								<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<input
+										className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+										name='CreateDate'
+										type="date"
+										value={CreateDate}
+										onChange={e => setCreateDate(e.target.value)}
+										disabled={!isCreate()}
+										required
+									/>
+								</td>
+								<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<select
+										name="Type"
+										value={Type}
+										onChange={e => setType(e.target.value as DishType)}
+										className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+									>
+										{Object.values(DishType).map(t => (
+											<option key={t} value={t}>{t}</option>
+										))}
+									</select>
+								</td>
+								<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+								</td>
+								<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<div className='flex items-start flex-wrap gap-1 mb-1'>
+										{Ingredients.length > 0 ? Ingredients.map(di => {
+											const ingredient = ingredientsData.find(i => i.Id === di.IngredientId);
+											return ingredient !== undefined ? (
+												<span key={`formDishes-${ingredient.Id}`} className={`${ingredient.InStock ? "bg-green-100 text-green-800" : "bg-pink-100 text-pink-800"} flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded`}>
+													{ingredient.Name}
+													<input
+														type="number"
+														min="0.5"
+														step="0.5"
+														value={di.Servings}
+														onChange={e => UpdateServings(ingredient.Id, Number(e.target.value))}
+														className="w-10 text-center bg-white border border-current rounded text-xs px-1"
+														title="Servings"
+													/>
+													<FontAwesomeIcon className='cursor-pointer' onClick={() => RemoveChipIngredient(ingredient.Id)} icon={faXmark} />
+												</span>
+											) : null
+										}) : (
+											<span className="bg-fuchsia-100 text-fuchsia-800 text-sm font-medium px-2.5 py-0.5 rounded">ingredient...</span>
+										)}
+									</div>
+									<QuickSearch<Ingredient>
+										items={ingredientsData.filter(i => !Ingredients.some(di => di.IngredientId === i.Id))}
+										keyProp="Id"
+										propsToSearch={['Name']}
+										mainProp="Name"
+										extraProps={[{
+											value: 'InStock',
+											format: (v) => v ? 'In stock' : 'No stock',
+											styles: (v) => v ? 'text-green-600 font-medium' : 'text-pink-500 font-medium',
+										}]}
+										placeholder="Search ingredient..."
+										maxResults={8}
+										value={IngredientsInput}
+										onChange={setIngredientsInput}
+										onSelect={OpenIngredientModal}
+									/>
+								</td>
+								<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+									<button
+										type="submit"
+										className="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none"
+									>
+										<FontAwesomeIcon icon={faCheck} />
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											clearForm()
+											setShowFormRow(false)
+											setEditingDishId(null)
+										}}
+										className="text-white bg-gray-400 hover:bg-gray-500 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-3 py-2.5 mb-2 focus:outline-none"
+									>
+										<FontAwesomeIcon icon={faXmark} />
+									</button>
+								</td>
+							</tr>
+						)}
 						{CurrentItems.length > 0 ? CurrentItems.map(data => (
-							<tr key={data.Id} className="bg-white border-b text-center">
+							<tr key={data.Id} className={`${editingDishId === data.Id ? 'bg-amber-50' : 'bg-white'} border-b text-center`}>
+								{editingDishId === data.Id ? (
+									<>
+										<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<input
+												className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+												type="text"
+												value={Name}
+												onChange={e => setName(e.target.value)}
+												required
+											/>
+										</td>
+										<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<input
+												className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+												type="date"
+												value={CreateDate}
+												disabled
+											/>
+										</td>
+										<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<select
+												value={Type}
+												onChange={e => setType(e.target.value as DishType)}
+												className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
+											>
+												{Object.values(DishType).map(t => (
+													<option key={t} value={t}>{t}</option>
+												))}
+											</select>
+										</td>
+										<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+										</td>
+										<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<div className='flex items-start flex-wrap gap-1 mb-1'>
+												{Ingredients.length > 0 ? Ingredients.map(di => {
+													const ingredient = ingredientsData.find(i => i.Id === di.IngredientId);
+													return ingredient !== undefined ? (
+														<span key={`editDishes-${ingredient.Id}`} className={`${ingredient.InStock ? "bg-green-100 text-green-800" : "bg-pink-100 text-pink-800"} flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded`}>
+															{ingredient.Name}
+															<input
+																type="number"
+																min="0.5"
+																step="0.5"
+																value={di.Servings}
+																onChange={e => UpdateServings(ingredient.Id, Number(e.target.value))}
+																className="w-10 text-center bg-white border border-current rounded text-xs px-1"
+																title="Servings"
+															/>
+															<FontAwesomeIcon className='cursor-pointer' onClick={() => RemoveChipIngredient(ingredient.Id)} icon={faXmark} />
+														</span>
+													) : null
+												}) : (
+													<span className="bg-fuchsia-100 text-fuchsia-800 text-sm font-medium px-2.5 py-0.5 rounded">ingredient...</span>
+												)}
+											</div>
+											<QuickSearch<Ingredient>
+												items={ingredientsData.filter(i => !Ingredients.some(di => di.IngredientId === i.Id))}
+												keyProp="Id"
+												propsToSearch={['Name']}
+												mainProp="Name"
+												extraProps={[{
+													value: 'InStock',
+													format: (v) => v ? 'In stock' : 'No stock',
+													styles: (v) => v ? 'text-green-600 font-medium' : 'text-pink-500 font-medium',
+												}]}
+												placeholder="Search ingredient..."
+												maxResults={8}
+												value={IngredientsInput}
+												onChange={setIngredientsInput}
+												onSelect={OpenIngredientModal}
+											/>
+										</td>
+										<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<button type="button" onClick={SaveInlineEdit} className="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none">
+												<FontAwesomeIcon icon={faCheck} />
+											</button>
+											<button
+												type="button"
+												onClick={() => {
+													clearForm()
+													setEditingDishId(null)
+												}}
+												className="text-white bg-gray-400 hover:bg-gray-500 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-3 py-2.5 mb-2 focus:outline-none"
+											>
+												<FontAwesomeIcon icon={faXmark} />
+											</button>
+										</td>
+									</>
+								) : (
+									<>
 								<th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
 									{data.Name}
 								</th>
@@ -193,13 +417,20 @@ const Dishes = ({ dishesData, ingredientsData, onRefetch }: DishesProps) => {
 									})}
 								</th>
 								<th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-									<button type="button" onClick={() => FillInputs(data.Id)} className="text-white bg-yellow-700 hover:bg-yellow-800 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none">
+									<button
+										type="button"
+										onClick={() => FillInputs(data.Id)}
+										disabled={isAnotherDishBeingEdited(data.Id)}
+										className={`text-white font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none ${isAnotherDishBeingEdited(data.Id) ? 'bg-gray-400 cursor-not-allowed opacity-60' : 'bg-yellow-700 hover:bg-yellow-800 focus:ring-4 focus:ring-yellow-300'}`}
+									>
 										<FontAwesomeIcon icon={faPen} />
 									</button>
 									<button type="button" onClick={() => RemoveDish(data.Id)} className="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none">
 										<FontAwesomeIcon icon={faTrash} />
 									</button>
 								</th>
+									</>
+								)}
 							</tr>
 						)) : (
 							<tr key="message-dish" className="bg-white border-b text-center">
@@ -208,92 +439,6 @@ const Dishes = ({ dishesData, ingredientsData, onRefetch }: DishesProps) => {
 								</th>
 							</tr>
 						)}
-						<tr key={'formDishes'} className="bg-white border-b text-center">
-							<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<input
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-									name='Name'
-									type="text"
-									placeholder="Burrito"
-									value={Name}
-									onChange={e => setName(e.target.value)}
-									required
-								/>
-							</td>
-							<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<input
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-									name='CreateDate'
-									type="date"
-									value={CreateDate}
-									onChange={e => setCreateDate(e.target.value)}
-									disabled={!isCreate()}
-									required
-								/>
-							</td>
-							<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<select
-									name="Type"
-									value={Type}
-									onChange={e => setType(e.target.value as DishType)}
-									className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5"
-								>
-									{Object.values(DishType).map(t => (
-										<option key={t} value={t}>{t}</option>
-									))}
-								</select>
-							</td>
-							<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-							</td>
-							<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<div className='flex items-start flex-wrap gap-1 mb-1'>
-									{Ingredients.length > 0 ? Ingredients.map(di => {
-										const ingredient = ingredientsData.find(i => i.Id === di.IngredientId);
-										return ingredient !== undefined ? (
-											<span key={`formDishes-${ingredient.Id}`} className={`${ingredient.InStock ? "bg-green-100 text-green-800" : "bg-pink-100 text-pink-800"} flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded`}>
-												{ingredient.Name}
-												<input
-													type="number"
-													min="0.5"
-													step="0.5"
-													value={di.Servings}
-													onChange={e => UpdateServings(ingredient.Id, Number(e.target.value))}
-													className="w-10 text-center bg-white border border-current rounded text-xs px-1"
-													title="Servings"
-												/>
-												<FontAwesomeIcon className='cursor-pointer' onClick={() => RemoveChipIngredient(ingredient.Id)} icon={faXmark} />
-											</span>
-										) : null
-									}) : (
-										<span className="bg-fuchsia-100 text-fuchsia-800 text-sm font-medium px-2.5 py-0.5 rounded">ingredient...</span>
-									)}
-								</div>
-								<QuickSearch<Ingredient>
-									items={ingredientsData.filter(i => !Ingredients.some(di => di.IngredientId === i.Id))}
-									keyProp="Id"
-									propsToSearch={['Name']}
-									mainProp="Name"
-									extraProps={[{
-										value: 'InStock',
-										format: (v) => v ? 'In stock' : 'No stock',
-										styles: (v) => v ? 'text-green-600 font-medium' : 'text-pink-500 font-medium',
-									}]}
-									placeholder="Search ingredient..."
-									maxResults={8}
-									value={IngredientsInput}
-									onChange={setIngredientsInput}
-									onSelect={OpenIngredientModal}
-								/>
-							</td>
-							<td scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-								<button
-									type="submit"
-									className={`text-white ${isCreate() ? "bg-green-700 hover:bg-green-800 focus:ring-green-300" : "bg-yellow-700 hover:bg-yellow-800 focus:ring-yellow-300"} focus:ring-4 font-medium rounded-lg text-sm px-3 py-2.5 me-2 mb-2 focus:outline-none`}
-								>
-									<FontAwesomeIcon icon={isCreate() ? faAdd : faPen} />
-								</button>
-							</td>
-						</tr>
 					</tbody>
 				</table>
 			</form>
