@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
 import IngredientsPage from './pages/IngredientsPage'
 import DishesPage from './pages/DishesPage'
+import DailyMenusPage from './pages/DailyMenusPage'
 import ComingSoon from './components/ComingSoon'
 
 function App() {
@@ -12,7 +13,7 @@ function App() {
 					<Route index element={<Navigate to="/ingredients" replace />} />
 					<Route path="/ingredients" element={<IngredientsPage />} />
 					<Route path="/dishes" element={<DishesPage />} />
-					<Route path="/daily-menus" element={<ComingSoon title="Daily Menus" />} />
+					<Route path="/daily-menus" element={<DailyMenusPage />} />
 					<Route path="/weekly-plans" element={<ComingSoon title="Weekly Plans" />} />
 					<Route path="/monthly-plan" element={<ComingSoon title="Monthly Plan" />} />
 					<Route path="/shopping-list" element={<ComingSoon title="Shopping List" />} />

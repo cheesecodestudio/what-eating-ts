@@ -32,11 +32,14 @@ Usuarios que cocinan en casa suelen tener tres fricciones:
 5. Clasificacion de ingredientes por grupos alimenticios (primario y secundario).
 6. Unidad de medida y porcion por ingrediente (g, ml, unidad, taza).
 7. UI para seleccionar ingrediente con busqueda rapida y modal de servings.
-8. Estructura de navegacion para modulos futuros (daily menus, weekly plans, monthly plan, shopping list, nutrition goals), actualmente en modo Coming Soon.
+8. Gestion de Daily Menus como plantillas reutilizables con comidas libres por nombre.
+9. Asignacion de platos por comida en Daily Menus mediante drag and drop, con indicador `CanMake`.
+10. Deteccion de coincidencias por firma de platos principales (desayuno/almuerzo/cena) para sugerir reutilizar plantillas.
+11. Estructura de navegacion para modulos futuros (weekly plans, monthly plan, shopping list, nutrition goals), Weekly y modulos restantes en modo Coming Soon.
 
 ### 4.2 Fuera de alcance actual (pendiente)
 1. Persistencia/uso real de ruleta en interfaz principal.
-2. Gestion de planes diarios, semanales y mensuales.
+2. Gestion de planes semanales y mensuales.
 3. Generacion automatica de lista de compras.
 4. Metas nutricionales y calculo de macros/calorias.
 5. Autenticacion/autorizacion por usuario.
@@ -53,14 +56,18 @@ Usuarios que cocinan en casa suelen tener tres fricciones:
 ## 6. Estado actual del sistema (analisis tecnico)
 ### 6.1 Frontend
 - Stack: React 18 + TypeScript + Vite + Tailwind + React Router.
-- Modulos activos: Ingredients y Dishes.
-- Modulos visibles pero no implementados funcionalmente: Daily Menus, Weekly Plans, Monthly Plan, Shopping List, Nutrition Goals.
+- Modulos activos: Ingredients, Dishes y Daily Menus.
+- Modulos visibles pero no implementados funcionalmente: Weekly Plans, Monthly Plan, Shopping List, Nutrition Goals.
 
 ### 6.2 Backend
 - Stack: Express + TypeScript + Supabase JS.
 - Endpoints activos:
   - `GET/POST/PUT/DELETE /api/ingredients`
   - `GET/POST/PUT/DELETE /api/dishes`
+  - `GET/POST/GET(id)/DELETE /api/daily-menus`
+  - `POST /api/daily-menus/:id/meals`
+  - `PUT/DELETE /api/daily-menus/:id/meals/:mealId`
+  - `PUT /api/daily-menus/:id/meals/:mealId/dish`
 - Existe ruta `plates` en codigo backend pero no esta montada en el servidor principal.
 
 ### 6.3 Datos
@@ -69,7 +76,12 @@ Usuarios que cocinan en casa suelen tener tres fricciones:
   - `ingredients`
   - `dishes`
   - `dish_ingredients`
+  - `daily_menus`
+  - `daily_menu_meals`
+  - `daily_menu_entries`
 - Columnas relevantes en ingredientes: `food_group`, `food_groups`, `unit_of_measure`, `portion`, `in_stock`.
+
+- Daily Menus se modela como plantilla sin fecha obligatoria; el nombre se autogenera desde platos principales cuando estan definidos.
 
 ## 7. Requisitos funcionales
 ### 7.1 Inventario de ingredientes

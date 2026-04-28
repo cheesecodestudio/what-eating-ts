@@ -24,3 +24,23 @@ export type Ingredient = BaseInfo & {
 	UnitOfMeasure?: UnitOfMeasure | null
 	Portion?: number | null
 }
+
+export type DailyMenuSummary = BaseInfo & {
+	PrincipalSignature: string | null
+	DishNames: string[]
+}
+
+export type DailyMenuMeal = {
+	Id: string
+	MealName: string
+	SortOrder: number
+	EntryId: string | null
+	DishId: string | null
+	DishName: string | null
+	DishType: DishType | null
+	CanMake: boolean
+}
+
+export type DailyMenuDetail = DailyMenuSummary & {
+	Meals: DailyMenuMeal[]
+}
